@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div id="root">
+        {{name}}
+        <p>{{message.message1}}</p>
+    </div>
+    <script>
+        //虚拟dom的面向对象
+        class Vnode {
+            //tag 为标签名称 data为属性对象 value为标签下的文本标签值 type为标签类型
+            constructor(tag,data,value,type){
+                this.tag = tag && tag.toLowerCase();
+                this.data = data;
+                this.value = value;
+                this.type = type;
+                this.children = [] //子元素的数据也需要在这里定义
+            }
+            appendChild(vnode){
+                this.children.push(vnode)
+            }
+        }
+        // 实际dom转为dom树
+        function getVNode (node){
+            let nodeType = node.nodeType;
+            let _vnode = null;
+            //1为标签节点
+            if(nodeType === 1){
+                let nodeName = node.nodeName;
+                let attrs = node.attributes; //  属性节点的nodetype为2  attributes拿到的是节点数组
+                //虚拟dom的对象
+                let _attrObj = {};
+                for(let i = 0; i < attrs.length; i++){
+                    _attrObj[attrs[i].nodeName] = attrs[i].nodeValue;
+                }
+                _vnode = new Vnode(nodeName,_attrObj, undefined,nodeType)
+                //考虑node的子元素
+                let childNodes = node.childNodes;
+                for(let i = 0; i< childNodes.length;i++){
+                    //加到对象的子元素
+                    _vnode.appendChild( getVNode(childNodes[i]) )
+                }
+            }else if(nodeType === 3){
+                _vnode = new Vnode( undefined,undefined, node.nodeValue, node.nodeType)
+            }
+            return _vnode;
+        }
+        //dom树转为实际节点
+        function parseVnode (vnode){
+            let type = vnode.type;
+            let _node = null;
+            if(type === 3){
+                return document.createTextNode( vnode.value )
+            }else if( type === 1 ){
+                _node = document.createElement( vnode.tag )
+                let data = vnode.data;
+                Object.keys( data ).forEach( (key)=>{
+                    let attrName = key;
+                    let attrValue = data[ key ];
+                    _node.setAttribute( attrName, attrValue );
+                })
+                let children = vnode.children;
+                children.forEach (subvnode =>{
+                    _node.appendChild( parseVnode(subvnode) )
+                })
+            }
+            return _node;
+        }
+        
+        
+        
+        // 虚拟dom树与data结合产生的还是为虚拟dom树 模仿vue ast与data产生新的vnode
+        let rkuohao = /\{\{(.+?)\}\}/g;
+        //解决data中的嵌套数据问题  可以使用柯里化进行优化
+        function getValuebyPath(obj,path)
+        {
+            let paths = path.split('.');
+            let res = obj;
+            while(prop = paths.shift()){
+                res = res[ prop ]
+            }
+            return res
+        }
+        function combine (vnode, data){
+            let _type = vnode.type;
+            let _data = vnode.data;
+            let _value = vnode.value;
+            let _tag = vnode.tag
+            let _children = vnode.children;
+
+            let _vnode = null;
+            if(_type === 3){
+                _value = _value.replace(rkuohao,function(_, g){
+                    return getValuebyPath (data, g.trim())
+                })
+                _vnode = new Vnode(_tag, _data, _value,_type)
+            }else if ( _type === 1){
+                _vnode = new Vnode(_tag, _data, _value, _type)
+                _children.forEach( _subvnode => _vnode.appendChild( combine(_subvnode, data)))
+            }
+            return _vnode 
+        }
+
+
+
+        //响应式区域
+        let ARRAY_METHOD = [
+            'push',
+            'pop',
+            'shift',
+            'unshift',
+            'sort',
+            'splice'
+        ];
+        // 拦截push等方法
+        let arr_methods = Object.create( Array.prototype );
+        ARRAY_METHOD.forEach(method=>{
+            //这个同名方法的push方法能接收到push传过来的arguments参数
+            arr_methods[method] = function(){
+                //监视push等方法之前
+                //写到监视之前的话可以只去改修改的数据部分
+                for(let i = 0; i<arguments.length; i++)
+                {   
+                    reactify(arguments[i])
+                }
+                //这个位置相当于push方法传递的参数为 array_method里面的需要使用apply改变this指向问题
+                let res = Array.prototype[ method ].apply(this,arguments)
+
+                //监视push等方法之后 
+                // reactify(data)也可以解决for循环 data数会全部刷新
+                return res
+            }
+        })
+
+        //将对象转为响应式
+        function defineReactive(target, key, value, enumerable){
+            if( typeof value === 'object' && value !=null && !Array.isArray(value))
+            {
+                reactify( value )
+            }
+            let that = this
+            Object.defineProperty(target,key,{ 
+                configurable:true,
+                enumerable:!!enumerable,
+                get(){
+                    console.log(`读取o的${key}属性`);
+                    return value;
+                },
+                set(newVal){
+                    console.log(`设置o的${key}属性为:${newVal}`)
+                    if(typeof newVal === 'object' && newVal !== null)
+                    {
+                        value = reactify( newVal )
+                    }else{
+                        value = newVal
+                    }
+                    that.mountComponent();
+                }
+            })
+        }
+        //运用递归解决多层
+        function reactify( o, vm ){
+            let keys = Object.keys( o )
+            for(let i = 0; i < keys.length; i++){
+                let key = keys[ i ]
+                let value = o[ key ]
+                if(Array.isArray( value )){
+                    //让数组也响应式,监听数组的变化 这个响应式写到哪里都行
+                    value.__proto__ = arr_methods
+                    for(let j = 0; j< value.length; j++){
+                        reactify( value[j], vm)
+                    }
+                }else{
+                    defineReactive.call(vm, o, key, value, true)
+                }
+            }
+        }
+        // 将某一个对象的属性的访问映射到对象的某一个属性成员
+        function porxy(target, prop, key){
+            Object.defineProperty( target, key, { //defineproperty第二个参数为代理对象成员
+                    enumerable:true,
+                    configurable:true,
+                    get(){
+                        return target[ prop ][ key ]
+                    },
+                    set(newVal){
+                        target[prop][key] = newVal
+                    }
+            })
+        }
+
+
+        //vue的面向对象
+        function DwVue ( options ){
+            this._data = options.data;
+            this.elm = document.querySelector( options.el )
+            this._template = this.elm;
+            this._parent = this.elm.parentNode;
+            //数据全部变为响应式再去挂在render
+            // reactify(this._data,this)
+            this.initData();
+
+            this.mount();
+        }
+        DwVue.prototype.mount = function (){
+            // 缓存了render
+            this.render = this.createRenderFn();
+
+            this.mountComponent();
+        }
+        DwVue.prototype.mountComponent = function(){
+            let mount = ()=>{
+                this.updata ( this.render() )
+            }
+            mount.call(this)
+        }
+
+        DwVue.prototype.createRenderFn = function(){
+            //模拟缓存 ast 缓存带坑的vnode
+            let ast = getVNode( this._template )
+            return function render(){
+                // 将 ast 与 data 结合形成 vnode
+                let tep =  combine(ast, this._data)
+                return tep;
+            }
+        }
+        DwVue.prototype.updata = function( vnode ){
+            let realDOM =  parseVnode(vnode)
+            this._parent.replaceChild( realDOM ,document.querySelector("#root"))
+        }
+        //在reactify的基础上套一层函数然后就行一次进行proxy,进行事件代理
+        DwVue.prototype.initData = function(){
+
+            let keys = Object.keys(this._data)
+            //响应式
+            reactify(this._data,this)
+            //事件代理
+            for(let i = 0; i< keys.length; i++){
+                porxy(this, '_data', keys[ i ])
+            }
+        }
+
+
+        let app = new DwVue({
+            el:"#root",
+            data:{
+                name:'新名称',
+                message:{
+                    message1:"新标签"
+                },
+                datas:[
+                    {info:'好难'}
+                ]
+            }
+        })
+        
+    </script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <script>
+        let ARRAY_METHOD = [
+            'push',
+            'pop',
+            'shift',
+            'unshift',
+            'sort',
+            'splice'
+        ];
+
+        let arr = [];
+        //继承关系为 arr->Array.prototype -> object.prototy->...
+        //劫持位置
+        //arr -> 改下方法 -> Array.prototy -> object.prototy->....
+        //object这个方法提供一个_proto_ 指向继承的 proyoyty
+
+        let arr_methods = Object.create( Array.prototype );
+
+        ARRAY_METHOD.forEach(method=>{
+            arr_methods[method] = function(){
+                console.log('被劫持')
+                //这个位置相当于push方法传递的参数为 array_method里面的需要使用apply改变this指向问题
+                let res = Array.prototype[ method ].apply(this,arguments)
+                return res
+            }
+        })
+
+        arr.__proto__ = arr_methods
+        
+
+    </script>
+</body>
+</html>

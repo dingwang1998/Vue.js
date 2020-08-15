@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div id="root">
+        123
+        <p>1233</p>
+        <p>23</p>
+    </div>
+    <script>
+        class Vnode {
+            //tag 为标签名称 data为属性对象 value为标签下的文本标签值 type为标签类型
+            constructor(tag,data,value,type){
+                this.tag = tag && tag.toLowerCase();
+                this.data = data;
+                this.value = value;
+                this.type = type;
+                this.children = [] //子元素的数据也需要在这里定义
+            }
+            appendChild(vnode){
+                this.children.push(vnode)
+            }
+        }
+        // 转为dom树
+        function getVNode (node){
+            let nodeType = node.nodeType;
+            let _vnode = null;
+            //1为标签节点
+            if(nodeType === 1){
+                let nodeName = node.nodeName;
+                let attrs = node.attributes; //  属性节点的nodetype为2  attributes拿到的是节点数组
+                //虚拟dom的对象
+                let _attrObj = {};
+                for(let i = 0; i < attrs.length; i++){
+                    _attrObj[attrs[i].nodeName] = attrs[i].nodeValue;
+                }
+                _vnode = new Vnode(nodeName,_attrObj, undefined,nodeType)
+                //考虑node的子元素
+                let childNodes = node.childNodes;
+                for(let i = 0; i< childNodes.length;i++){
+                    //加到对象的子元素
+                    _vnode.appendChild( getVNode(childNodes[i]) )
+                }
+            }else if(nodeType === 3){
+                _vnode = new Vnode( undefined,undefined, node.nodeValue, node.nodeType)
+            }
+            return _vnode;
+        }
+
+        //dom树转为节点
+        function parseVnode (vnode){
+            let type = vnode.type;
+            let _node = null;
+            if(type === 3){
+                return document.createTextNode( vnode.value )
+            }else if( type === 1 ){
+                _node = document.createElement( vnode.tag )
+                let data = vnode.data;
+                Object.keys( data ).forEach( (key)=>{
+                    let attrName = key;
+                    let attrValue = data[ key ];
+                    _node.setAttribute( attrName, attrValue );
+                })
+                let children = vnode.children;
+                children.forEach (subvnode =>{
+                    _node.appendChild( parseVnode(subvnode) )
+                })
+            }
+            return _node;
+        }
+        let root = document.querySelector('#root');
+        let vroot = getVNode(root)
+
+        let dom2 = parseVnode(vroot)
+        console.log(dom2)
+    </script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vue.js</title>
+</head>
+<body>
+    <div id="root">
+        {{name}}
+        <p>{{message.message1}}</p>
+    </div>
+    <script src="./src/watcher.js"></script>
+    <script src="./src/Dep.js"></script>
+    <script src="./src/vnode.js"></script>
+    <script src="./src/compiler.js"></script>
+    <script src="./src/dwVue.js"></script>
+    <script src="./src/initData.js"></script>
+    <script src="./src/initrender.js"></script>
+    <script>
+        let app = new DwVue({
+            el:"#root",
+            data:{
+                name:'新名称',
+                message:{
+                    message1:"新标签"
+                },
+                datas:[
+                    {info:'好难'}
+                ]
+            }
+        })
+    </script>
+</body>
+</html>

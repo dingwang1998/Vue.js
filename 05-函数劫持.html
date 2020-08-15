@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <script>
+        function func(){
+            console.log('我是缓存的函数')
+        }
+
+        let _temp = func;
+
+        func = function(){
+            _temp();
+            console.log('我被劫持了')
+        }
+        func();
+        //  这个列子给我们的反思空间为
+        //  我们想要在原有的方法上加一功能，但是这个方法需要被监视
+    </script>
+</body>
+</html>

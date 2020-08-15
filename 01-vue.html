@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div id="root">
+        {{name}}
+        <p>{{message.message1}}</p>
+    </div>
+    <script>
+        let rkuohao = /\{\{(.+?)\}\}/g;
+        //解决data中的嵌套数据问题  可以使用柯里化进行优化
+        function getValuebyPath(obj,path)
+        {
+            let paths = path.split('.');
+            let res = obj;
+            while(prop = paths.shift()){
+                res = res[ prop ]
+            }
+            return res
+        }
+        function compiler (template, data){
+            let childrenNodes = template.childNodes;
+            for( let i = 0; i < childrenNodes.length; i++)
+            {   
+                let type = childrenNodes[i].nodeType
+                if( type === 3){
+                    let txt = childrenNodes[i].nodeValue;
+                    txt = txt.replace(rkuohao, function(_, g){  //第一个下划线接受的正则匹配的值，第二个g匹配的是正则分的组
+                        let path = g.trim();
+                        console.log(path)
+                        let value = getValuebyPath(data, path);
+                        return value;
+                    })
+                    childrenNodes[i].nodeValue = txt;
+                }else if(type === 1){
+                    compiler(childrenNodes[i], data)
+                }
+            }
+        }
+
+        function DwVue(options){
+            this._data = options.data
+            this.$el = this._templateDOM =  document.querySelector(options.el)
+            this._parentNode = this._templateDOM.parentNode
+            this.render();
+        }
+        //刷新模板
+        DwVue.prototype.render = function(){
+            this.compiler()
+        }
+        //渲染模板
+        DwVue.prototype.compiler = function(){
+            let realHTML = this._templateDOM.cloneNode(true)
+            compiler(realHTML, this._data)
+            this.update( realHTML )
+        }
+        //替换模板
+        DwVue.prototype.update = function(realHTML){
+            this._parentNode.replaceChild(realHTML,this._templateDOM)
+        }
+        let app = new DwVue({
+            el:"#root",
+            data:{
+                name:'新名称',
+                message:{
+                    message1:"新标签"
+                }
+            }
+        })
+    </script>
+</body>
+</html>

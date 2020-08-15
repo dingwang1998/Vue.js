@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div id="root">
+        {{name}}
+        <p>{{message}}</p>
+    </div>
+    <script>
+        let rkuohao = /\{\{(.+?)\}\}/g;
+        let data = {
+            name:'新名称',
+            message:"新描述"
+        };
+        let temNode = document.getElementById('root');
+
+        function compiler (template, data){
+            let childrenNodes = template.childNodes;
+            for( let i = 0; i < childrenNodes.length; i++)
+            {   
+                let type = childrenNodes[i].nodeType
+                
+                if( type === 3){
+                    let txt = childrenNodes[i].nodeValue;
+                    txt = txt.replace(rkuohao, function(_, g){  //第一个下划线接受的正则匹配的值，第二个g匹配的是正则分的组
+                        let key = g.trim();
+                        let value = data[ key ];
+                        return value;
+                    })
+                    childrenNodes[i].nodeValue = txt;
+                }else if(type === 1){
+                    compiler(childrenNodes[i], data)
+                }
+            }
+        }
+        let coloneNode = temNode.cloneNode(true)
+        console.log(temNode)
+        compiler(coloneNode,data);
+        console.log(coloneNode)
+
+        temNode.parentNode.replaceChild(coloneNode,temNode) //replace 替换元素在前
+    </script>
+</body>
+</html>
